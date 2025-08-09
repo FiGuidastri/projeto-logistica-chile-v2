@@ -1,28 +1,28 @@
 import streamlit as st
 import openpyxl
 from openpyxl.utils import get_column_letter, column_index_from_string
-import io # Usado para manipular o arquivo em memória
-import os # Usado para manipular nomes de arquivos
+import io  # Used to handle the file in memory
+import os  # Used to handle file names
 
 # =====================================================================================
-#  NOSSA LÓGICA DE REPROGRAMAÇÃO (ADAPTADA DENTRO DE UMA FUNÇÃO)
+#  OUR RESCHEDULING LOGIC (ADAPTED INSIDE A FUNCTION)
 # =====================================================================================
-def processar_planilha(arquivo_excel, dia_feriado):
+def process_spreadsheet(excel_file, holiday_day):
     """
-    Esta função contém o nosso algoritmo principal.
-    Ela recebe o arquivo carregado e o dia do feriado, e retorna
-    o arquivo modificado e uma lista de logs.
+    This function contains our main algorithm.
+    It receives the uploaded file and the holiday day, and returns
+    the modified file and a list of logs.
     """
-    logs = [] # Lista para armazenar as mensagens de log
+    logs = []  # List to store log messages
 
     try:
-        # Usamos o arquivo em memória diretamente
-        workbook = openpyxl.load_workbook(arquivo_excel)
+        # We use the in-memory file directly
+        workbook = openpyxl.load_workbook(excel_file)
         sheet_name = '01. Calendario SCL Abarrotes'
         sheet = workbook[sheet_name]
-        logs.append(f"Planilha '{arquivo_excel.name}' carregada com sucesso.")
+        logs.append(f"Spreadsheet '{excel_file.name}' loaded successfully.")
     except Exception as e:
-        logs.append(f"ERRO: Não foi possível ler a planilha. Verifique se é o arquivo correto. Detalhe: {e}")
+        logs.append(f"ERROR: Could not read the spreadsheet. Please check if it is the correct file. Details: {e}")
         return None, logs
 
     delivery_columns = ['AI', 'AJ', 'AK', 'AL', 'AM', 'AN']
@@ -32,19 +32,19 @@ def processar_planilha(arquivo_excel, dia_feriado):
     holiday_col_letter = None
     for col_letter in delivery_columns:
         day_in_sheet = sheet[f'{col_letter}3'].value
-        if day_in_sheet == dia_feriado:
+        if day_in_sheet == holiday_day:
             holiday_col_letter = col_letter
             break
     
     if not holiday_col_letter:
-        logs.append(f"ERRO: O dia {dia_feriado} não foi encontrado na linha 3 das colunas de Entrega.")
+        logs.append(f"ERROR: The day {holiday_day} was not found in row 3 of the Delivery columns.")
         return None, logs
     
-    logs.append(f"Feriado identificado na coluna de Entrega: {holiday_col_letter}")
+    logs.append(f"Holiday identified in the Delivery column: {holiday_col_letter}")
 
     holiday_col_index = column_index_from_string(holiday_col_letter)
     if holiday_col_index == column_index_from_string(delivery_columns[0]):
-         logs.append("Atenção: O feriado é o primeiro dia do período. Não é possível antecipar.")
+         logs.append("Warning: The holiday is the first day of the period. It cannot be anticipated.")
          return None, logs
 
     previous_col_index = holiday_col_index - 1
@@ -62,44 +62,44 @@ def processar_planilha(arquivo_excel, dia_feriado):
             if new_weekday_number:
                 destination_cell.value = new_weekday_number
                 task_cell.value = None
-                log_message = f"Entrega reprogramada (com substituição) do dia {dia_feriado} para a coluna {previous_col_letter}."
+                log_message = f"Delivery rescheduled (with substitution) from day {holiday_day} to column {previous_col_letter}."
                 sheet[f'{observations_column}{row_index}'].value = log_message
                 tasks_moved += 1
     
-    logs.append(f"Reprogramação concluída. {tasks_moved} tarefas foram movidas.")
+    logs.append(f"Rescheduling completed. {tasks_moved} tasks were moved.")
     
     return workbook, logs
 
 # =====================================================================================
-#  INTERFACE WEB COM STREAMLIT
+#  STREAMLIT WEB INTERFACE
 # =====================================================================================
 
-st.title("🤖 Reprogramador Automático de Feriados")
+st.title("🤖 Automatic Holiday Rescheduler")
 
 st.write("""
-Esta ferramenta automatiza a reprogramação de entregas em planilhas de logística. 
-Basta carregar sua planilha, informar o dia do feriado e clicar em 'Reprogramar'.
+This tool automates the rescheduling of deliveries in logistics spreadsheets.
+Just upload your spreadsheet, enter the holiday day, and click 'Reschedule'.
 """)
 
 uploaded_file = st.file_uploader(
-    "1. Escolha a sua planilha de programação (.xlsx)",
+    "1. Choose your scheduling spreadsheet (.xlsx)",
     type=['xlsx']
 )
 
 holiday_day = st.number_input(
-    "2. Digite o dia do mês que é feriado (ex: 20)",
+    "2. Enter the day of the month that is a holiday (e.g., 20)",
     min_value=1, 
     max_value=31, 
     step=1,
-    value=20 # Valor padrão para facilitar o teste
+    value=20  # Default value to facilitate testing
 )
 
-if st.button("Reprogramar Planilha"):
+if st.button("Reschedule Spreadsheet"):
     if uploaded_file is not None:
-        with st.spinner('Aguarde... Reprogramando tarefas...'):
-            modified_workbook, logs = processar_planilha(uploaded_file, int(holiday_day))
+        with st.spinner('Please wait... Rescheduling tasks...'):
+            modified_workbook, logs = process_spreadsheet(uploaded_file, int(holiday_day))
 
-        st.subheader("Relatório da Operação:")
+        st.subheader("Operation Report:")
         for log in logs:
             st.info(log)
         
@@ -108,22 +108,22 @@ if st.button("Reprogramar Planilha"):
             modified_workbook.save(output)
             output.seek(0)
             
-            st.success("Sua planilha foi reprogramada com sucesso!")
+            st.success("Your spreadsheet has been successfully rescheduled!")
             
-            # --- LÓGICA DO NOME DO ARQUIVO ALTERADA AQUI ---
-            # 1. Pega o nome do arquivo original (ex: 'planilha.xlsx')
+            # --- FILE NAME LOGIC CHANGED HERE ---
+            # 1. Get the original file name (e.g., 'spreadsheet.xlsx')
             original_filename = uploaded_file.name
-            # 2. Separa o nome base da extensão (ex: 'planilha', '.xlsx')
+            # 2. Split the base name and extension (e.g., 'spreadsheet', '.xlsx')
             base_name, extension = os.path.splitext(original_filename)
-            # 3. Cria o novo nome com o sufixo
-            new_filename = f"{base_name}_reprogramado{extension}"
+            # 3. Create the new name with suffix
+            new_filename = f"{base_name}_rescheduled{extension}"
             
             st.download_button(
-                label="Clique aqui para baixar a planilha reprogramada",
+                label="Click here to download the rescheduled spreadsheet",
                 data=output,
-                # 4. Usa o novo nome do arquivo no botão de download
+                # 4. Use the new file name on the download button
                 file_name=new_filename,
                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
     else:
-        st.error("Por favor, carregue uma planilha antes de reprogramar.")
+        st.error("Please upload a spreadsheet before rescheduling.")
